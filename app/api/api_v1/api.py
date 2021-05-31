@@ -1,5 +1,5 @@
-from .endpoints.user import user
+from .endpoints.location import location
 
 
 def init_app(app):
-    app.register_blueprint(user, url_prefix="/api/users")
+    app.register_blueprint(location, url_prefix="/api")
