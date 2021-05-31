@@ -27,9 +27,9 @@
 #     user = create_user(client, "John Doe", "john@example.com")
 #     assert user.name == "John Doe"
 
-import unittest
 import os
-from flask import abort, url_for
+
+# from flask import abort, url_for
 from flask_testing import TestCase
 
 from app import create_app, db
