@@ -1,97 +1,60 @@
-import datetime
-from app.definitions.repository_interfaces.location_repository_interface import (
-    LocationRepositoryInterface,
-    ZoneRepositoryInterface,
-)
+from app.repositories import LocationRepository
 from app.definitions.result import Result
 from app.definitions.service_result import ServiceResult
-from loguru import logger
-from app.models import Location, Zone, ZoneLocation
-from app import db
 
 
 class LocationController:
-    def __init__(self, location_repository: LocationRepositoryInterface):
-        self.location_repository = location_repository
+    def __init__(self, location_repository: LocationRepository):
+        self.repository = location_repository
 
-    def create_location(self, location_data):
-        location = self.location_repository.create(obj_in=location_data)
+    def index(self):
+        locations = self.repository.index()
+        return ServiceResult(Result(locations, status_code=200))
+
+    def show(self, id):
+        location = self.repository.find_by_id(id)
         return ServiceResult(Result(location, status_code=200))
 
-    def update_location(self, location_id, location_data):
-        location_result = self.location_repository.update_by_id(
-            location_id, obj_in=location_data
-        )
-        logger.info(f"{location_result}| test")
-        data = {"data": {"message": "updated successfully"}}
-        return ServiceResult(Result(data, status_code=200))
+    def create(self, data):
+        location = self.repository.create(data)
+        return ServiceResult(Result(location, status_code=201))
 
-    def delete_location(self, location_id):
-        self.location_repository.delete(location_id)
-        data = {"data": {"message": "deleted successfully"}}
-        return ServiceResult(Result(data, status_code=200))
+    def update(self, obj_id, data):
+        location = self.repository.update_by_id(obj_id, data)
+        # publish_to_kafka("CATALOG_UPDATE", obj_id)
+        return ServiceResult(Result(location, status_code=200))
 
-    def get_nearby(self, location_id):
-        get_point = Location.query.get(location_id)
-        return ServiceResult(Result(get_point, status_code=200))
+    def delete(self, obj_id):
+        self.repository.delete(obj_id=obj_id)
+        return ServiceResult(Result({}, status_code=204))
 
+    def dist_between_two_lat_lon(self, *args):
+        from math import asin, cos, radians, sin, sqrt
 
-class ZoneController:
-    def __init__(self, zone_repository: ZoneRepositoryInterface):
-        self.zone_repository = zone_repository
+        lat1, lat2, long1, long2 = map(radians, args[1:])
 
-    def get_zone(self):
-        # zone_location = db.session.query(Zone).join(Zone_location).filter(
-        #     Zone.id == Zone_location.zone_id
-        # ).all()
-        # l_location = db.session.query(Location).join(Zone_location).filter(
-        #     Location.id == Zone_location.location_id
-        # ).all()
-        # z1 = Zone_location.query.all()
-        z1 = db.session.query(ZoneLocation).all()
-        logger.info(f"{[i for i in z1]}")
-        # data ={"zone_id": zone_location[0, "location_id": l_location[0]}
-        return ServiceResult(Result(z1, status_code=200))
+        dist_lats = abs(lat2 - lat1)
+        dist_longs = abs(long2 - long1)
 
-    def create_zone(self, zone_data):
-        name = zone_data.get("name")
-        wave_points = zone_data.get("wave_points")
-        z_data = Zone(
-            name=name,
-            wave_points=wave_points,
-            modified=datetime.datetime.utcnow(),
-            created=datetime.datetime.utcnow(),
-        )
+        a = sin(dist_lats / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dist_longs / 2) ** 2
+        c = asin(sqrt(a)) * 2
+        radius_earth = 6378
+        return c * radius_earth
 
-        db.session.add(z_data)
-        for location_data in zone_data.get("location"):
-
-            l_data = Location(
-                name=location_data.get("name"),
-                latitude=location_data.get("latitude"),
-                longitude=location_data.get("longitude"),
-                full_address=location_data.get("full_address"),
-                modified=datetime.datetime.utcnow(),
-                created=datetime.datetime.utcnow(),
+    def get_nearby(self, data, schema):
+        locations = self.repository.index()
+        try:
+            nearby_location = min(
+                schema(many=True).dumps(locations),
+                key=lambda p: self.dist_between_two_lat_lon(
+                    data["latitude"],
+                    data["latitude"],
+                    data["longitude"],
+                    data["longitude"],
+                ),
             )
-
-        logger.info(f"{z_data, l_data}")
-        db.session.add(l_data)
-        db.session.commit()
-        data = ZoneLocation(
-            zone_id=z_data.id,
-            location_id=l_data.id,
-            modified=datetime.datetime.utcnow(),
-            created=datetime.datetime.utcnow(),
-        )
-        db.session.add(data)
-        db.session.commit()
-        data1 = {"data": {"message": "created successfully"}}
-        # location = self.zone_repository.create(obj_in=zone_data)
-        return ServiceResult(Result(data1, status_code=200))
-
-    def update_zone(self, zone_id, zone_data):
-        zone_result = self.zone_repository.update_by_id(zone_id, obj_in=zone_data)
-        logger.info(f"{zone_result}")
-        data = {"data": {"message": "updated successfully"}}
-        return ServiceResult(Result(data, status_code=200))
+            res_location = {"data": nearby_location}
+        except TypeError:
+            print("Not a list or not a number.")
+            res_location = {"data": "Not a list or not a number"}
+        return ServiceResult(Result(res_location, status_code=200))

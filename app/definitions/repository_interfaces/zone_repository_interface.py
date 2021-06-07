@@ -3,5 +3,5 @@ from abc import ABC
 from .base.crud_repository_interface import CRUDRepository
 
 
-class UserRepositoryInterface(CRUDRepository, ABC):
+class ZoneRepositoryInterface(CRUDRepository, ABC):
     pass

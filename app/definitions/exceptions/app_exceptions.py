@@ -1,6 +1,7 @@
 from flask import Response
 from flask import json
 from sqlalchemy.exc import DBAPIError
+from werkzeug.exceptions import HTTPException
 
 
 class AppExceptionCase(Exception):
@@ -19,11 +20,19 @@ class AppExceptionCase(Exception):
 def app_exception_handler(exc: AppExceptionCase):
     if isinstance(exc, DBAPIError):
         return Response(
-            json.dumps({"app_exception": "Database Error", "context": exc.orig.pgerror}),
+            json.dumps(
+                {"app_exception": "Database Error", "errorMessage": exc.orig.pgerror}
+            ),
             status=400,
         )
+    if isinstance(exc, HTTPException):
+        return Response(
+            json.dumps({"app_exception": "HTTP Error", "errorMessage": exc.description}),
+            status=exc.code,
+        )
+
     return Response(
-        json.dumps({"app_exception": exc.exception_case, "context": exc.context}),
+        json.dumps({"app_exception": exc.exception_case, "errorMessage": exc.context}),
         status=exc.status_code,
         mimetype="application/json",
     )
@@ -65,4 +74,32 @@ class AppException:
             :param context: extra dictionary object to give the error more context
             """
             status_code = 401
+            AppExceptionCase.__init__(self, status_code, context)
+
+    class ValidationException(AppExceptionCase):
+        """
+        Resource Creation Failed Exception
+        """
+
+        def __init__(self, context):
+
+            status_code = 400
+            AppExceptionCase.__init__(self, status_code, context)
+
+    class KeyCloakAdminException(AppExceptionCase):
+        def __init__(self, context: dict = None, status_code=400):
+            """
+            Key Cloak Error. Error with regards to Keycloak authentication
+            :param context: extra dictionary object to give the error more context
+            """
+
+            AppExceptionCase.__init__(self, status_code, context)
+
+    class BadRequest(AppExceptionCase):
+        def __init__(self, context: dict = None):
+            """
+            Bad Request
+            :param context:
+            """
+            status_code = 400
             AppExceptionCase.__init__(self, status_code, context)

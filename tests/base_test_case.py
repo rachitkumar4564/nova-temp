@@ -1,63 +1,34 @@
-# import os
-# import tempfile
-# import flask
-#
-# import pytest
-#
-# from app import create_app, db
-#
-# flask_app = flask.Flask(__name__)
-#
-#
-# @pytest.fixture
-# def client():
-#     app = create_app()
-#     app.config.from_object("config.DevelopmentConfig")
-#     with app.app_context():
-#         db.create_all()
-#         yield app  # Note that we changed return for yield, see below for why
-#         db.drop_all()
-#
-#
-# def create_user(client, name, email):
-#     return client.post("/api/users", data=dict(name=name, email=email))
-#
-#
-# def test_create_user(client):
-#     user = create_user(client, "John Doe", "john@example.com")
-#     assert user.name == "John Doe"
-
-import os
-
-# from flask import abort, url_for
 from flask_testing import TestCase
+from app import create_app
+from app.models import Location, Zone
+from app.controllers import LocationController, ZoneController
+from app.repositories import LocationRepository, ZoneRepository
 
-from app import create_app, db
-from config import basedir
+# from tests.redis_mock import RedisMock
 
 
 class BaseTestCase(TestCase):
+    data = {}
+
     def create_app(self):
-
-        app = create_app()
-        app.config.from_object("config.TestingConfig")
-        app.config.update(
-            SQLALCHEMY_DATABASE_URI="sqlite:///" + os.path.join(basedir, "test.sqlite")
-        )
-
+        app = create_app("config.TestingConfig")
+        self.location_repository = LocationRepository()
+        self.zone_repository = ZoneRepository()
+        self.location_controller = LocationController(ZoneRepository())
+        self.zone_controller = ZoneController()
         return app
 
     def setUp(self):
         """
         Will be called before every test
         """
-
-        db.create_all()
+        Location.drop_collection()
+        Zone.drop_collection()
 
     def tearDown(self):
         """
         Will be called after every test
         """
-
-        db.session.remove()
-        db.drop_all()
+        Zone.drop_collection()
+        Location.drop_collection()
+        # self.redis_mock.redis_mock = {}

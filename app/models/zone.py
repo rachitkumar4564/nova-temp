@@ -6,23 +6,17 @@ from uuid import uuid4
 
 
 @dataclass
-class Location(db.Model):
+class Zone(db.Model):
     id: UUID(as_uuid=True)
     name: str
-    longitude: float
-    latitude: float
-    full_address: str
-    zone_id: UUID(as_uuid=True)
+    wave_points: float
     modified: str
     created: str
-    __tablename__ = "location"
-    __table_args__ = {"extend_existing": True}
+    __tablename__ = "zone"
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    name = db.Column(db.String(60), unique=True, nullable=True)
-    longitude = db.Column(db.Numeric, nullable=True)
-    latitude = db.Column(db.Numeric, nullable=True)
-    full_address = db.Column(db.String, nullable=True)
-    zone_id = db.Column(UUID(as_uuid=True), db.ForeignKey("zone.id"), nullable=True)
+    name = db.Column(db.String(60), unique=True, nullable=False)
+    wave_points = db.Column(db.Numeric, unique=True, nullable=False)
+    locations = db.relationship("Location", backref="zone", lazy=True)
     modified = db.Column(
         db.DateTime,
         nullable=False,
